@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import os
+import h5py
 
 DATA_DIRECTORY = "data/Signature"
+DATA_BASENAME = "kilpisjarvi"
 
 
 class AdcpData:
@@ -65,4 +67,13 @@ def read_signature_data_from_mat_files(deployment_name, path='.'):
     return SignatureData(**data)
 
 
-data = read_signature_data_from_mat_files("kilpisjarvi", DATA_DIRECTORY)
+def save_data(data=None, filename="signature.h5"):
+    if not data:
+        data = read_signature_data_from_mat_files(DATA_BASENAME, DATA_DIRECTORY)
+    with h5py.File(filename, "w") as f:
+        beams = data.beams
+        for beam in beams:
+            group = f.create_group(beam)
+            group.create_dataset("timestamps", data=beams[beam].index)
+            group.create_dataset("cells", data=beams[beam].cells)
+            group.create_dataset("currents", data=beams[beam].currents)
