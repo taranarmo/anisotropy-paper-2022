@@ -67,7 +67,7 @@ def read_signature_data_from_mat_files(deployment_name, path='.'):
     return SignatureData(**data)
 
 
-def save_data(data=None, filename="signature.h5"):
+def mat2hdf5(data=None, filename="signature.h5"):
     if not data:
         data = read_signature_data_from_mat_files(DATA_BASENAME, DATA_DIRECTORY)
     with h5py.File(filename, "w") as f:
@@ -77,3 +77,7 @@ def save_data(data=None, filename="signature.h5"):
             group.create_dataset("timestamps", data=beams[beam].index)
             group.create_dataset("cells", data=beams[beam].cells)
             group.create_dataset("currents", data=beams[beam].currents)
+
+
+if __name__ == "__init__":
+    mat2hdf5()
