@@ -3,23 +3,10 @@ import pandas as pd
 import scipy.io
 import os
 import h5py
+from adcp import AdcpData, SignatureData
 
 DATA_DIRECTORY = "data/Signature"
 DATA_BASENAME = "kilpisjarvi"
-
-
-class AdcpData:
-    def __init__(self, index, cells, currents, phi=None, theta=None):
-        self.index = index
-        self.cells = cells
-        self.currents = currents
-        self.phi = phi
-        self.theta = theta
-
-
-class SignatureData:
-    def __init__(self, **beams):
-        self.beams = beams
 
 
 def read_signature_data_from_mat_files(deployment_name, path='.'):
