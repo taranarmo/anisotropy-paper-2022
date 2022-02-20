@@ -51,8 +51,9 @@ class SignatureData:
 def read_adcp_data(filename, beam):
     with h5py.File(filename) as data_file:
         group = data_file[beam]
+        time_shift = group["timestamps"][:] % 1
         return AdcpData(
-                index=group["timestamps"][:],
+                index=group["timestamps"][:] - time_shift,
                 cells=group["cells"][:],
                 currents=group["currents"][:],
                 ) 
