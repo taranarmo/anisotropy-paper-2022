@@ -6,7 +6,15 @@ import h5py
 
 
 class AdcpData:
-    def __init__(self, index, cells, currents, phi=None, theta=None, isdetrended=False):
+    def __init__(
+            self,
+            index,
+            cells,
+            currents,
+            phi=None,
+            theta=None,
+            isdetrended=False
+            ):
         self.index = index
         self.cells = cells
         self.currents = currents
@@ -14,7 +22,11 @@ class AdcpData:
         self.theta = theta
         self.isdetrended = isdetrended
     
-    def detrend(self, window='100T', inplace=False):
+    def detrend(
+            self,
+            window='100T',
+            inplace=False
+            ):
         if self.isdetrended:
             raise Exception("Data is already tetrended")
         df = pd.DataFrame(data=self.currents, index=pd.to_datetime(self.index, unit='s'), columns=self.cells)
