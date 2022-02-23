@@ -21,6 +21,13 @@ class AdcpData:
         self.phi = phi
         self.theta = theta
         self.isdetrended = isdetrended
+
+    def __repr__(self):
+        return pd.DataFrame(
+            index=self.index,
+            columns=self.cells,
+            data=self.currents,
+            ).__repr__()
     
     def detrend(
             self,
@@ -68,7 +75,6 @@ class AdcpData:
                 data=np.subtract(self.currents, self.currents[:, reference_point_id, None])**2,
                 )
         return data.rolling(window).mean()
-
 
 class SignatureData:
     def __init__(self, **beams):
