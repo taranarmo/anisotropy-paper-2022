@@ -41,7 +41,7 @@ def get_buoyancy_flux(radiation_data):
     rad0 = radiation_data / np.exp(-gamma*depth05);
     delta = 1           # m, approximate, needs T-chain data
     hmix = 9            # m, approximate, needs T-chain data 
-    sw_alpha = 1.65e-5 # sw_alpha = sw_alpha(0,1,0)
+    sw_alpha = 1.65e-5  # sw_alpha = sw_alpha(0,1,0)
     beta = sw_alpha * 9.81 / 4.18e6
     buoyancy_flux = beta*(radiation_data*np.exp(-gamma*delta)+radiation_data*np.exp(-gamma*hmix) -2/hmix*radiation_data*(np.exp(-gamma*delta)-np.exp(-gamma*hmix)))
     return buoyancy_flux

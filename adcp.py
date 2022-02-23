@@ -29,7 +29,7 @@ class AdcpData:
             ):
         if self.isdetrended:
             raise Exception("Data is already tetrended")
-        df = pd.DataFrame(data=self.currents, index=pd.to_datetime(self.index, unit='s'), columns=self.cells)
+        df = pd.DataFrame(data=self.currents, index=self.index, columns=self.cells)
         currents = (df - df.rolling(window).mean()).values
         if inplace:
             self.currents = currents
@@ -42,6 +42,20 @@ class AdcpData:
                     isdetrended=True
                     )
 
+    def resample(self, window):
+        data = pd.DataFrame(
+                index=self.index,
+                columns=self.cells,
+                data=self.currents,
+                )
+        data = data.resample(window).mean()
+        return AdcpData(
+                index=data.index.values,
+                cells=data.columns.values,
+                currents=data.values,
+                isdetrended=self.isdetrended,
+                )
+
     def get_structure_function(
             self,
             reference_point=1,
@@ -49,9 +63,9 @@ class AdcpData:
             ):
         reference_point_id = np.argmin(np.abs(self.cells - reference_point))
         data = pd.DataFrame(
-                index=pd.to_datetime(self.index, unit='s'),
+                index=self.index,
                 columns=np.subtract(self.cells, self.cells[reference_point_id, None]),
-                data=np.subtract(self.currents, self.currents[:, reference_point_id, None]),
+                data=np.subtract(self.currents, self.currents[:, reference_point_id, None])**2,
                 )
         return data.rolling(window).mean()
 
@@ -65,8 +79,10 @@ def read_adcp_data(filename, beam):
     with h5py.File(filename) as data_file:
         group = data_file[beam]
         time_shift = group["timestamps"][0] % 1
+        index = group["timestamps"][:] - time_shift
+        index = pd.to_datetime(index, unit='s').values
         return AdcpData(
-                index=group["timestamps"][:] - time_shift,
+                index=index,
                 cells=group["cells"][:],
                 currents=group["currents"][:],
                 )
