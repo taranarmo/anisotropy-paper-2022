@@ -28,7 +28,7 @@ class AdcpData:
             columns=self.cells,
             data=self.currents,
             ).__repr__()
-    
+
     def detrend(
             self,
             window='100T',
@@ -75,6 +75,17 @@ class AdcpData:
                 data=np.subtract(self.currents, self.currents[:, reference_point_id, None])**2,
                 )
         return data.rolling(window).mean()
+
+    def get_epsilon(
+            self,
+            reference_point,
+            window,
+            ):
+        structure_function = self.get_structure_function(reference_point=reference_point, window=window)
+        r = np.abs(structure_function.columns.values)**(2/3)
+        epsilon_func = lambda y: (np.dot(r, y) / np.dot(r, r) / 2.09)**1.5
+        return structure_function.apply(epsilon_func, axis=1)
+
 
 class SignatureData:
     def __init__(self, **beams):
