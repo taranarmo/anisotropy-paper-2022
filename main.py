@@ -8,12 +8,15 @@ import json
 import sqlite3
 import adcp
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+from math import exp
 
 DATA_DIRECTORY = "data"
 SIGNATURE_DATA_FILE = "signature.h5"
 START_DATE= "2019-05-14"
 END_DATE = "2019-05-16"
 
+GRAVITATIONAL_ACCELERATION = 9.8067
 
 def matlab_ts2python_time(matlab_timestamp):
     """
@@ -45,7 +48,7 @@ def get_temperature_data(data_directory):
             filename = next(names)
         except StopIteration:
             return filename
-        raise Exception("more than 1 file with such id in directory")
+        raise Exception("more than 1 file with the same id in directory")
 
     with open(os.path.join(data_directory, "setup.json")) as f:
         metadata = json.load(f)
@@ -59,36 +62,62 @@ def get_temperature_data(data_directory):
         positions.append(device["position"])
         distances.append(device["distance_to_previous"])
     permutation_index = np.argsort(positions)
-    distances = np.cumsum(np.array(distances)[permutation_index])
+    distances = np.cumsum(np.array(distances)[permutation_index]) / 1e2
     data = pd.concat({key:value for key, value in zip(distances, np.array(data, dtype="object")[permutation_index])}, axis=1)
     data.index = pd.to_datetime(data.index, unit="ms")
     data.index.name = ""
-    return data.droplevel(level=1, axis=1)
+    data = data.droplevel(level=1, axis=1)
+    return data.resample('T').mean()
 
 
-def get_buoyancy_flux(radiation_data):
+def get_termocline_boundaries(temperature_data, threshold=1e-2):
+    pattern = np.gradient(temperature_data) < threshold
+    boundaries = {
+            "upper": temperature_data[pattern].index.min(),
+            "lower": temperature_data[pattern].index.max(),
+    }
+    return boundaries
+
+
+def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32):
     """
     Calculates buoyancy flux based on the solar radiation data, currently without thermistor chain data
     """
-    def B(z):
-        sw_alpha = 1.65e-5  # sw_alpha = sw_alpha(0,1,0)
-        beta = sw_alpha * 9.81 / 4.18e6
-        return beta
+    # sw_alpha = 1.65e-5  # sw_alpha = sw_alpha(0,1,0)
+    # beta = sw_alpha * 9.81 / 4.18e6
+    # depth05 = 2.2       # m
+    GAMMA = 0.3         # 1/m
+    radiation_data = radiation_data.resample('T').mean().dropna()
+    radiation_data = radiation_data * ice_transparency / 4.18e6 # 1 W/m2 ≈ 4.18 μmole * m2/s
+    temperature_data = temperature_data.resample('T').mean().dropna()
+    temperature_data, radiation_data = temperature_data.align(radiation_data, join='inner', axis=0)
 
-    sw_alpha = 1.65e-5  # sw_alpha = sw_alpha(0,1,0)
-    beta = sw_alpha * 9.81 / 4.18e6
-    depth05 = 2.2       # m
-    gamma = 0.3         # 1/m
-    rad0 = radiation_data / np.exp(-gamma*depth05);
-    delta = 1           # m, approximate, needs T-chain data
-    hmix = 9            # m, approximate, needs T-chain data
-    buoyancy_flux = beta*(radiation_data*np.exp(-gamma*delta)+radiation_data*np.exp(-gamma*hmix) -2/hmix*radiation_data*(np.exp(-gamma*delta)-np.exp(-gamma*hmix)))
-    return buoyancy_flux
+    def I(z, radiation_data=radiation_data):
+        return radiation_data * np.exp(-GAMMA*z)
+
+    def beta(temperature_data, depths_range, z, Tr = 277):
+        T = np.interp(z, depths_range, temperature_data)
+        return 1.65e-5 * GRAVITATIONAL_ACCELERATION * (T - Tr)
+
+    integral_buoyancy_flux = {}
+    for timestamp, temperature in temperature_data.iterrows():
+        boundaries = get_termocline_boundaries(temperature_data.loc[timestamp, :])
+        integral_buoyancy_flux[timestamp] = sum([
+            beta(temperature, temperature.index, boundaries["upper"]) * I(boundaries["lower"], radiation_data=radiation_data.loc[timestamp]),
+            beta(temperature, temperature.index, boundaries["lower"]) * I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp]),
+            -sum((
+                    beta(temperature, temperature.index, z) * I(z, radiation_data=radiation_data.loc[timestamp])
+                    for z in np.arange(boundaries["upper"], boundaries["lower"], integration_step)
+                )
+            ) * integration_step * 2 / (boundaries["lower"] - boundaries["upper"])
+        ])
+    return pd.Series(integral_buoyancy_flux)
 
 
 def main():
     radiation_data = get_radiation_data(START_DATE, END_DATE)
-    buoyancy_flux = get_buoyancy_flux(radiation_data)
+    temperature_data = get_temperature_data('data/T_chain')
+    buoyancy_flux = get_buoyancy_flux(temperature_data=temperature_data, radiation_data=radiation_data)
     beams = [f"beam{i}" for i in (1,2)]
     fig, ax = plt.subplots(figsize=(7, 5))
     buoyancy_flux.rolling("100T").mean().plot(ax=ax)
