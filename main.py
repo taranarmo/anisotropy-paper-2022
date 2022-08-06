@@ -103,9 +103,12 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
     for timestamp, temperature in temperature_data.iterrows():
         boundaries = get_termocline_boundaries(temperature_data.loc[timestamp, :])
         integral_buoyancy_flux[timestamp] = sum([
-            beta(temperature, temperature.index, boundaries["upper"]) * I(boundaries["lower"], radiation_data=radiation_data.loc[timestamp]),
-            beta(temperature, temperature.index, boundaries["lower"]) * I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp]),
-            -sum((
+            beta(temperature, temperature.index, boundaries["upper"]) *
+                I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp]),
+            beta(temperature, temperature.index, boundaries["lower"]) *
+                I(boundaries["lower"], radiation_data=radiation_data.loc[timestamp]),
+            -sum(
+                (
                     beta(temperature, temperature.index, z) * I(z, radiation_data=radiation_data.loc[timestamp])
                     for z in np.arange(boundaries["upper"], boundaries["lower"], integration_step)
                 )
