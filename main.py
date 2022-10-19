@@ -13,8 +13,9 @@ from math import exp
 
 DATA_DIRECTORY = "data"
 SIGNATURE_DATA_FILE = "signature.h5"
-START_DATE= "2019-05-14"
+START_DATE = "2019-05-14"
 END_DATE = "2019-05-16"
+EXPERIMENT_TIMEFRAME = slice("2019-05-14", "2019-05-16")
 
 GRAVITATIONAL_ACCELERATION = 9.8067
 
@@ -70,8 +71,8 @@ def get_temperature_data(data_directory):
     return data.resample('T').mean()
 
 
-def get_termocline_boundaries(temperature_data, threshold=1e-2):
-    pattern = np.gradient(temperature_data) < threshold
+def get_termocline_boundaries(temperature_data, mixing_threshold=1e-2):
+    pattern = np.gradient(temperature_data) < mixing_threshold
     boundaries = {
             "upper": temperature_data[pattern].index.min(),
             "lower": temperature_data[pattern].index.max(),
@@ -79,7 +80,7 @@ def get_termocline_boundaries(temperature_data, threshold=1e-2):
     return boundaries
 
 
-def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32, gamma=0.3):
+def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32, gamma=0.3, mixing_threshold=1e-2):
     """
     Calculates buoyancy flux based on the solar radiation data, currently without thermistor chain data
     """
@@ -101,7 +102,7 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
 
     integral_buoyancy_flux = {}
     for timestamp, temperature in temperature_data.iterrows():
-        boundaries = get_termocline_boundaries(temperature_data.loc[timestamp, :])
+        boundaries = get_termocline_boundaries(temperature_data.loc[timestamp, :], mixing_threshold=mixing_threshold)
         integral_buoyancy_flux[timestamp] = sum([
             beta(temperature, temperature.index, boundaries["upper"]) *
                 I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp], gamma=gamma),
@@ -120,6 +121,7 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
 def main():
     radiation_data = get_radiation_data(START_DATE, END_DATE)
     temperature_data = get_temperature_data('data/T_chain')
+    temperature_data = temperature_data.loc[EXPERIMENT_TIMEFRAME]
     buoyancy_flux = get_buoyancy_flux(
             temperature_data=temperature_data,
             radiation_data=radiation_data,
@@ -135,6 +137,11 @@ def main():
         dissipation_rate.rolling("100T").mean().plot(ax=ax)
     ax.legend(ax.lines, ["B", *[f"ϵ, {beam}" for beam in beams]])
     plt.savefig(f"beams_and_epsilon.png")
+    plt.close()
+    plt.contourf(temperature_data.index.values, temperature_data.columns.values, temperature_data.T)
+    plt.gca().invert_yaxis()
+    plt.colorbar()
+    plt.savefig('temperatures.png')
     plt.close()
 
 if __name__ == "__main__":
