@@ -79,21 +79,21 @@ def get_termocline_boundaries(temperature_data, threshold=1e-2):
     return boundaries
 
 
-def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32):
+def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32, gamma=0.3):
     """
     Calculates buoyancy flux based on the solar radiation data, currently without thermistor chain data
     """
     # sw_alpha = 1.65e-5  # sw_alpha = sw_alpha(0,1,0)
     # beta = sw_alpha * 9.81 / 4.18e6
     # depth05 = 2.2       # m
-    GAMMA = 0.3         # 1/m
+    GAMMA = gamma         # 1/m
     radiation_data = radiation_data.resample('T').mean().dropna()
     radiation_data = radiation_data * ice_transparency / 4.18e6 # 1 W/m2 ≈ 4.18 μmole * m2/s
     temperature_data = temperature_data.resample('T').mean().dropna()
     temperature_data, radiation_data = temperature_data.align(radiation_data, join='inner', axis=0)
 
-    def I(z, radiation_data=radiation_data):
-        return radiation_data * np.exp(-GAMMA*z)
+    def I(z, radiation_data=radiation_data, gamma=gamma):
+        return radiation_data * np.exp(-gamma*z)
 
     def beta(temperature_data, depths_range, z, Tr = 277):
         T = np.interp(z, depths_range, temperature_data)
@@ -104,12 +104,12 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
         boundaries = get_termocline_boundaries(temperature_data.loc[timestamp, :])
         integral_buoyancy_flux[timestamp] = sum([
             beta(temperature, temperature.index, boundaries["upper"]) *
-                I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp]),
+                I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp], gamma=gamma),
             beta(temperature, temperature.index, boundaries["lower"]) *
-                I(boundaries["lower"], radiation_data=radiation_data.loc[timestamp]),
+                I(boundaries["lower"], radiation_data=radiation_data.loc[timestamp], gamma=gamma),
             -sum(
                 (
-                    beta(temperature, temperature.index, z) * I(z, radiation_data=radiation_data.loc[timestamp])
+                    beta(temperature, temperature.index, z) * I(z, radiation_data=radiation_data.loc[timestamp], gamma=gamma)
                     for z in np.arange(boundaries["upper"], boundaries["lower"], integration_step)
                 )
             ) * integration_step * 2 / (boundaries["lower"] - boundaries["upper"])
@@ -120,7 +120,11 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
 def main():
     radiation_data = get_radiation_data(START_DATE, END_DATE)
     temperature_data = get_temperature_data('data/T_chain')
-    buoyancy_flux = get_buoyancy_flux(temperature_data=temperature_data, radiation_data=radiation_data)
+    buoyancy_flux = get_buoyancy_flux(
+            temperature_data=temperature_data,
+            radiation_data=radiation_data,
+            gamma=.35,
+    )
     beams = [f"beam{i}" for i in (1,2)]
     fig, ax = plt.subplots(figsize=(7, 5))
     buoyancy_flux.rolling("100T").mean().plot(ax=ax)
