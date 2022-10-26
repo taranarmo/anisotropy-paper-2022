@@ -71,13 +71,17 @@ def get_temperature_data(data_directory):
     return data.resample('T').mean()
 
 
-def get_termocline_boundaries(temperature_data, mixing_threshold=1e-2):
+def get_cml_boundaries(temperature_data, mixing_threshold=1e-2):
     pattern = np.gradient(temperature_data) < mixing_threshold
     boundaries = {
             "upper": temperature_data[pattern].index.min(),
             "lower": temperature_data[pattern].index.max(),
     }
     return boundaries
+
+
+def static_cml_boundaries(upper=0, lower=5):
+    return {'upper': upper, 'lower': lower}
 
 
 def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32, gamma=0.3, mixing_threshold=1e-2):
@@ -102,7 +106,7 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
 
     integral_buoyancy_flux = {}
     for timestamp, temperature in temperature_data.iterrows():
-        boundaries = get_termocline_boundaries(temperature_data.loc[timestamp, :], mixing_threshold=mixing_threshold)
+        boundaries = get_cml_boundaries(temperature_data.loc[timestamp, :], mixing_threshold=mixing_threshold)
         integral_buoyancy_flux[timestamp] = sum([
             beta(temperature, temperature.index, boundaries["upper"]) *
                 I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp], gamma=gamma),
