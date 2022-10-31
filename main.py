@@ -8,6 +8,7 @@ import json
 import sqlite3
 import adcp
 import matplotlib.pyplot as plt
+from functools import partial
 from scipy.interpolate import interp1d
 from math import exp
 
@@ -15,7 +16,7 @@ DATA_DIRECTORY = "data"
 SIGNATURE_DATA_FILE = "signature.h5"
 START_DATE = "2019-05-14"
 END_DATE = "2019-05-16"
-EXPERIMENT_TIMEFRAME = slice("2019-05-14", "2019-05-16")
+EXPERIMENT_TIMEFRAME = slice(START_DATE, END_DATE)
 
 GRAVITATIONAL_ACCELERATION = 9.8067
 
@@ -84,7 +85,14 @@ def static_cml_boundaries(upper=0, lower=5):
     return {'upper': upper, 'lower': lower}
 
 
-def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ice_transparency=0.32, gamma=0.3, mixing_threshold=1e-2):
+def get_buoyancy_flux(
+        radiation_data,
+        temperature_data,
+        integration_step=0.1,
+        ice_transparency=0.32,
+        gamma=0.3,
+        mixing_threshold=1e-2,
+        ):
     """
     Calculates buoyancy flux based on the solar radiation data, currently without thermistor chain data
     """
@@ -106,7 +114,10 @@ def get_buoyancy_flux(radiation_data, temperature_data, integration_step=0.1, ic
 
     integral_buoyancy_flux = {}
     for timestamp, temperature in temperature_data.iterrows():
-        boundaries = get_cml_boundaries(temperature_data.loc[timestamp, :], mixing_threshold=mixing_threshold)
+        boundaries = get_cml_boundaries(
+                temperature_data=temperature_data.loc[timestamp, :],
+                mixing_threshold=mixing_threshold
+                )
         integral_buoyancy_flux[timestamp] = sum([
             beta(temperature, temperature.index, boundaries["upper"]) *
                 I(boundaries["upper"], radiation_data=radiation_data.loc[timestamp], gamma=gamma),
@@ -129,7 +140,7 @@ def main():
     buoyancy_flux = get_buoyancy_flux(
             temperature_data=temperature_data,
             radiation_data=radiation_data,
-            gamma=.35,
+            gamma=.2,
     )
     beams = [f"beam{i}" for i in (1,2)]
     fig, ax = plt.subplots(figsize=(7, 5))
