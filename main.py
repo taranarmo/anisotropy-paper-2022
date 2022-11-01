@@ -20,6 +20,7 @@ EXPERIMENT_TIMEFRAME = slice(START_DATE, END_DATE)
 
 GRAVITATIONAL_ACCELERATION = 9.8067
 
+
 def matlab_ts2python_time(matlab_timestamp):
     """
     Converts MATLAB timestamp to python datetime object
@@ -133,6 +134,20 @@ def get_buoyancy_flux(
     return pd.Series(integral_buoyancy_flux)
 
 
+def get_data(beam):
+    radiation_data = get_radiation_data(START_DATE, END_DATE)
+    temperature_data = get_temperature_data('data/T_chain')
+    temperature_data = temperature_data.loc[EXPERIMENT_TIMEFRAME]
+    buoyancy_flux = get_buoyancy_flux(
+            temperature_data=temperature_data,
+            radiation_data=radiation_data,
+            gamma=.2,
+    )
+    currents_data = adcp.read_adcp_data(SIGNATURE_DATA_FILE, beam)
+    dissipation_rate = currents_data.resample('T').detrend('10T').get_epsilon(window='10T', reference_point=0.25)
+    dissipation_rate = dissipation_rate.loc[START_DATE:END_DATE]
+    return buoyancy_flux, dissipation_rate
+
 def main():
     radiation_data = get_radiation_data(START_DATE, END_DATE)
     temperature_data = get_temperature_data('data/T_chain')
@@ -142,9 +157,11 @@ def main():
             radiation_data=radiation_data,
             gamma=.2,
     )
-    beams = [f'beam{i}' for i in (1,2)]
+
     fig, ax = plt.subplots(figsize=(7, 5))
     buoyancy_flux.rolling('100T').mean().plot(ax=ax)
+
+    beams = [f'beam{i}' for i in (1,2)]
     for beam in beams:
         currents_data = adcp.read_adcp_data(SIGNATURE_DATA_FILE, beam)
         dissipation_rate = currents_data.resample('T').detrend('10T').get_epsilon(window='10T', reference_point=0.25)
