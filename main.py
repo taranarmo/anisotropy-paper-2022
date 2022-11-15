@@ -160,7 +160,6 @@ def main():
 
     fig, ax = plt.subplots(figsize=(7, 5))
     buoyancy_flux.rolling('100T').mean().plot(ax=ax)
-
     beams = [f'beam{i}' for i in (1,2)]
     for beam in beams:
         currents_data = adcp.read_adcp_data(SIGNATURE_DATA_FILE, beam)
@@ -170,12 +169,13 @@ def main():
     ax.legend(ax.lines, ['B', *[f'ϵ, {beam}' for beam in beams]])
     plt.savefig(f'beams_and_epsilon.png')
     plt.close()
+
     plt.contourf(temperature_data.index.values, temperature_data.columns.values, temperature_data.T)
     plt.gca().invert_yaxis()
     plt.colorbar()
     plt.savefig('temperatures.png')
     plt.close()
-    
+
 
 if __name__ == '__main__':
     main()
