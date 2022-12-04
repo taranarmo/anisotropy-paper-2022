@@ -51,7 +51,7 @@ def read_signature_data_from_mat_files(deployment_name, path='.'):
     i_cells = i_cells[0]
     data = {f"beam{i+1}":AdcpData(index, cells, adcp_datasets[beam]) for i, beam in enumerate(sorted(beams))}
     data[f"beam{len(beams)+1}"] = AdcpData(i_index, i_cells, i_currents)
-    return SignatureData(**data)
+    return SignatureData(data)
 
 
 def mat2hdf5(data=None, filename="signature.h5"):

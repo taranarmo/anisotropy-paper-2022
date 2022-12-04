@@ -66,7 +66,10 @@ def get_temperature_data(data_directory):
         distances.append(device['distance_to_previous'])
     permutation_index = np.argsort(positions)
     distances = np.cumsum(np.array(distances)[permutation_index]) / 1e2
-    data = pd.concat({key:value for key, value in zip(distances, np.array(data, dtype='object')[permutation_index])}, axis=1)
+    data = pd.concat(
+            {key:value for key, value in zip(distances, np.array(data, dtype='object')[permutation_index])},
+            axis=1
+            )
     data.index = pd.to_datetime(data.index, unit='ms')
     data.index.name = ''
     data = data.droplevel(level=1, axis=1)
@@ -141,7 +144,6 @@ def get_data(beam):
     buoyancy_flux = get_buoyancy_flux(
             temperature_data=temperature_data,
             radiation_data=radiation_data,
-            gamma=.2,
     )
     currents_data = adcp.read_adcp_data(SIGNATURE_DATA_FILE, beam)
     dissipation_rate = currents_data.resample('T').detrend('10T').get_epsilon(window='10T', reference_point=0.25)
@@ -155,7 +157,7 @@ def main():
     buoyancy_flux = get_buoyancy_flux(
             temperature_data=temperature_data,
             radiation_data=radiation_data,
-            gamma=.2,
+            gamma=.3,
     )
 
     fig, ax = plt.subplots(figsize=(7, 5))

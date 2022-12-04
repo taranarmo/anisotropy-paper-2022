@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from math import sin, cos, radians
 import scipy.io
 import os
 import h5py
@@ -11,9 +12,10 @@ class AdcpData:
             index,
             cells,
             currents,
-            phi=None,
-            theta=None,
-            isdetrended=False
+            phi=None, # Orientation
+            theta=None, # Vertical angle
+            isdetrended=False,
+            coordinates='beam',
             ):
         self.index = index
         self.cells = cells
@@ -35,7 +37,7 @@ class AdcpData:
             inplace=False
             ):
         if self.isdetrended:
-            raise Exception("Data is already tetrended")
+            raise Exception("Data is already detrended")
         df = pd.DataFrame(data=self.currents, index=self.index, columns=self.cells)
         currents = (df - df.rolling(window).mean()).values
         if inplace:
@@ -88,8 +90,51 @@ class AdcpData:
 
 
 class SignatureData:
-    def __init__(self, **beams):
+    def __init__(
+            self,
+            beams,
+            heading=None,
+            pitch=None,
+            roll=None,
+            theta=radians(25),
+            angle_units='radians'
+            ):
         self.beams = beams
+        if angle_units=='radians':
+            self.heading = heading
+            self.pitch = pitch
+            self.roll = roll
+            self.theta = theta
+        else:
+            self.heading = radians(heading)
+            self.pitch = radians(pitch)
+            self.roll = radians(roll)
+            self.theta = radians(theta)
+
+    def get_xyz(self):
+        vx = (self.beams['beam1'].currents - self.beams['beam3'].currents)/2 * sin(self.theta)
+        vy = (self.beams['beam2'].currents - self.beams['beam4'].currents)/2 * sin(self.theta)
+        vz = sum([
+            self.beams['beam1'].currents,
+            self.beams['beam2'].currents,
+            self.beams['beam3'].currents,
+            self.beams['beam4'].currents,
+            ]) / 4 * cos(self.theta)
+        return [
+            AdcpData(
+                index=self.beams['beam1'].index,
+                cells=self.beams['beam1'].cells,
+                currents=currents,
+                ) for currents in (vx, vy, vz)]
+
+    def get_tke(self, detrend_window='100T', resample_window='1T'):
+        enu = [x.resample(resample_window).detrend(detrend_window) for x in self.get_xyz()]
+        tke = pd.DataFrame(
+                data=sum([x.currents**2 for x in enu]),
+                index=enu[0].index,
+                columns=enu[0].cells,
+                )
+        return tke
 
 
 def read_adcp_data(filename, beam):
