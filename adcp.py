@@ -65,6 +65,20 @@ class AdcpData:
                 isdetrended=self.isdetrended,
                 )
 
+    def rolling_mean(self, window):
+        data = pd.DataFrame(
+                index=self.index,
+                columns=self.cells,
+                data=self.currents,
+                )
+        data = data.rolling(window).mean()
+        return AdcpData(
+                index=data.index.values,
+                cells=data.columns.values,
+                currents=data.values,
+                isdetrended=self.isdetrended,
+                )
+
     def get_structure_function(
             self,
             reference_point=1,
@@ -129,7 +143,7 @@ class SignatureData:
 
     def get_tke(self, detrend_window='100T', resample_window='1T'):
         enu = [x.resample(resample_window).detrend(detrend_window) for x in self.get_xyz()]
-        tke = pd.DataFrame(
+        tke = 0.5 * pd.DataFrame(
                 data=sum([x.currents**2 for x in enu]),
                 index=enu[0].index,
                 columns=enu[0].cells,
